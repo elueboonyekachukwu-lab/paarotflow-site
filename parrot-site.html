@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ParrotFlow — Turn your screen into a voice</title>
+  <meta name="description"
+    content="ParrotFlow is a screen-native reading assistant. Point at a word, and it reads, highlights and follows the page with you.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..500&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --paper: #fbfaff;
+      --card: #ffffff;
+      --ink: #15131f;
+      --ink-soft: #5d5a6e;
+      --line: #e6e3f2;
+      --violet: #6c5ce7;
+      --violet-deep: #4b3fc4;
+      --wash: rgba(108, 92, 231, 0.20);
+      --shadow: 0 20px 60px rgba(28, 22, 62, 0.08);
+
+      --serif: "Newsreader", Georgia, "Times New Roman", serif;
+      --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --paper: #100e1a;
+        --card: #191527;
+        --ink: #f3f1fb;
+        --ink-soft: #a29dba;
+        --line: #2a2440;
+        --violet: #9d90ff;
+        --violet-deep: #b9aeff;
+        --wash: rgba(157, 144, 255, 0.26);
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --paper: #100e1a;
+      --card: #191527;
+      --ink: #f3f1fb;
+      --ink-soft: #a29dba;
+      --line: #2a2440;
+      --violet: #9d90ff;
+      --violet-deep: #b9aeff;
+      --wash: rgba(157, 144, 255, 0.26);
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: clamp(15px, 1.05vw + 12px, 17px);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      width: min(100% - 2.5rem, 1080px);
+      margin-inline: auto;
+    }
+
+    .narrow {
+      max-width: 62ch;
+    }
+
+    section {
+      padding: clamp(56px, 9vw, 110px) 0;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      line-height: 1.12;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6.2vw, 4.4rem);
+    }
+
+    h2 {
+      font-size: clamp(1.9rem, 3.8vw, 2.9rem);
+    }
+
+    h3 {
+      font-size: clamp(1.15rem, 1.6vw, 1.35rem);
+    }
+
+    p {
+      margin: 0 0 1rem;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    /* ---------- top bar ---------- */
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(14px);
+      background: color-mix(in srgb, var(--paper) 82%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bar .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 14px 0;
+    }
+
+    .mark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .mark i {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: var(--violet);
+      color: #fff;
+      font-style: normal;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .bar nav {
+      display: flex;
+      gap: clamp(14px, 2vw, 28px);
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+
+    .bar nav a {
+      text-decoration: none;
+    }
+
+    .bar nav a:hover {
+      color: var(--violet);
+    }
+
+    @media (max-width: 720px) {
+      .bar nav {
+        display: none;
+      }
+    }
+
+    /* ---------- buttons ---------- */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 13px 22px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: var(--violet);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(108, 92, 231, .3);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+
+    .btn.ghost:hover {
+      border-color: var(--violet);
+      box-shadow: none;
+    }
+
+    :where(a, button):focus-visible {
+      outline: 2px solid var(--violet);
+      outline-offset: 3px;
+    }
+
+    /* ---------- hero ---------- */
+
+    .hero {
+      padding-top: clamp(40px, 6vw, 72px);
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--violet-deep);
+    }
+
+    .hero .lede {
+      font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+      color: var(--ink-soft);
+      max-width: 48ch;
+      margin-top: 1.25rem;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 1.75rem;
+    }
+
+    /* the reading demo — the page reading itself */
+
+    .reader {
+      margin-top: clamp(40px, 6vw, 64px);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .reader-chrome {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--line);
+      font-size: .78rem;
+      color: var(--ink-soft);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--line);
+    }
+
+    .url {
+      margin-left: 10px;
+      font-family: var(--sans);
+    }
+
+    .reader-body {
+      padding: clamp(22px, 4vw, 44px);
+      font-family: var(--serif);
+      font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+      line-height: 1.75;
+      max-width: 66ch;
+    }
+
+    .s {
+      border-radius: 5px;
+      padding: 1px 2px;
+      transition: background .35s ease, color .35s ease;
+    }
+
+    .s.on {
+      background: var(--wash);
+      box-shadow: 0 0 0 2px var(--wash);
+    }
+
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px clamp(22px, 4vw, 44px) 22px;
+      font-family: var(--sans);
+      font-size: .85rem;
+      color: var(--ink-soft);
+    }
+
+    .pulse {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--violet);
+      animation: beat 1.5s ease-in-out infinite;
+      flex: 0 0 auto;
+    }
+
+    @keyframes beat {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: .35;
+        transform: scale(.8);
+      }
+    }
+
+    .wave {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 16px;
+    }
+
+    .wave i {
+      width: 3px;
+      background: var(--violet);
+      border-radius: 2px;
+      animation: bar 1s ease-in-out infinite;
+    }
+
+    .wave i:nth-child(2) {
+      animation-delay: .15s;
+    }
+
+    .wave i:nth-child(3) {
+      animation-delay: .3s;
+    }
+
+    .wave i:nth-child(4) {
+      animation-delay: .45s;
+    }
+
+    .wave i:nth-child(5) {
+      animation-delay: .6s;
+    }
+
+    @keyframes bar {
+
+      0%,
+      100% {
+        height: 5px;
+      }
+
+      50% {
+        height: 16px;
+      }
+    }
+
+    /* ---------- problem ---------- */
+
+    .swap {
+      display: grid;
+      gap: clamp(18px, 3vw, 28px);
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      margin-top: 2.5rem;
+    }
+
+    .swap div {
+      padding: 26px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+    }
+
+    .swap div.old ol {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--ink-soft);
+    }
+
+    .swap div.old li {
+      margin-bottom: .3rem;
+    }
+
+    .swap h3 {
+      margin-bottom: .9rem;
+    }
+
+    .swap .new {
+      border-color: var(--violet);
+    }
+
+    .swap .new p {
+      font-family: var(--serif);
+      font-size: 1.25rem;
+      line-height: 1.5;
+    }
+
+    /* ---------- steps ---------- */
+
+    .steps {
+      counter-reset: step;
+      display: grid;
+      gap: 2px;
+      margin-top: 2.5rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .step {
+      counter-increment: step;
+      background: var(--card);
+      padding: 22px clamp(20px, 3vw, 30px);
+      display: grid;
+      grid-template-columns: 2.4rem 1fr;
+      gap: 1rem;
+      align-items: baseline;
+    }
+
+    .step::before {
+      content: counter(step);
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      color: var(--violet);
+    }
+
+    .step b {
+      display: block;
+      font-size: 1.02rem;
+    }
+
+    .step span {
+      color: var(--ink-soft);
+      font-size: .95rem;
+    }
+
+    /* ---------- systems ---------- */
+
+    .systems {
+      display: grid;
+      gap: clamp(16px, 2.4vw, 24px);
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 2.5rem;
+    }
+
+    .system {
+      padding: 26px;
+      border-radius: 18px;
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+
+    .system span {
+      font-size: 1.4rem;
+    }
+
+    .system h3 {
+      margin: 10px 0 8px;
+    }
+
+    .system p {
+      color: var(--ink-soft);
+      font-size: .95rem;
+      margin: 0;
+    }
+
+    /* ---------- people ---------- */
+
+    .people {
+      display: grid;
+      gap: 1px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      margin-top: 2.5rem;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .person {
+      background: var(--card);
+      padding: 24px;
+    }
+
+    .person b {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+
+    .person p {
+      color: var(--ink-soft);
+      font-size: .92rem;
+      margin: .4rem 0 0;
+    }
+
+    /* ---------- pricing ---------- */
+
+    .plans {
+      display: grid;
+      gap: clamp(16px, 2.4vw, 22px);
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      margin-top: 2.5rem;
+      align-items: start;
+    }
+
+    .plan {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--card);
+      padding: 28px;
+    }
+
+    .plan.pick {
+      border-color: var(--violet);
+      box-shadow: var(--shadow);
+    }
+
+    .plan .name {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+    }
+
+    .plan .price {
+      font-size: 2rem;
+      font-family: var(--serif);
+      margin: 10px 0 2px;
+    }
+
+    .plan .price small {
+      font-family: var(--sans);
+      font-size: .8rem;
+      color: var(--ink-soft);
+      font-weight: 500;
+    }
+
+    .plan .time {
+      color: var(--violet);
+      font-size: .9rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .plan ul {
+      list-style: none;
+      margin: 0 0 20px;
+      padding: 0;
+      font-size: .93rem;
+      color: var(--ink-soft);
+    }
+
+    .plan li {
+      padding: 7px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .plan li b {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .subhead {
+      margin-top: .7rem;
+      font-size: clamp(1.02rem, 1.3vw, 1.18rem);
+      color: var(--ink-soft);
+      max-width: 48ch;
+    }
+
+    .note {
+      margin-top: 1.4rem;
+      font-size: .85rem;
+      color: var(--ink-soft);
+    }
+
+    /* ---------- roadmap ---------- */
+
+    .road {
+      margin-top: 2.5rem;
+      border-left: 2px solid var(--line);
+      padding-left: clamp(18px, 3vw, 30px);
+      display: grid;
+      gap: 26px;
+    }
+
+    .phase {
+      position: relative;
+    }
+
+    .phase::before {
+      content: "";
+      position: absolute;
+      left: calc(-1 * clamp(18px, 3vw, 30px) - 6px);
+      top: .55rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--line);
+    }
+
+    .phase.now::before {
+      background: var(--violet);
+    }
+
+    .phase b {
+      font-family: var(--serif);
+      font-size: 1.25rem;
+      font-weight: 500;
+      display: block;
+    }
+
+    .phase p {
+      color: var(--ink-soft);
+      margin: .3rem 0 0;
+      font-size: .95rem;
+    }
+
+    .phase.now b::after {
+      content: "we are here";
+      font-family: var(--sans);
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--violet);
+      border: 1px solid var(--violet);
+      border-radius: 999px;
+      padding: 2px 9px;
+      margin-left: 10px;
+      vertical-align: middle;
+      letter-spacing: 0;
+    }
+
+    /* ---------- closing ---------- */
+
+    .close {
+      text-align: center;
+      background: var(--card);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .close h2 {
+      max-width: 20ch;
+      margin-inline: auto;
+    }
+
+    .close p {
+      color: var(--ink-soft);
+      max-width: 52ch;
+      margin: 1.2rem auto 2rem;
+    }
+
+    footer {
+      padding: 36px 0;
+      font-size: .85rem;
+      color: var(--ink-soft);
+    }
+
+    footer .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+
+      html {
+        scroll-behavior: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="bar">
+    <div class="wrap">
+      <div class="mark"><i>P</i> ParrotFlow</div>
+      <nav>
+        <a href="#pricing">Pricing</a>
+        <a href="#roadmap">Roadmap</a>
+      </nav>
+      <a class="btn" href="#get">Get the extension</a>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <div class="wrap">
+        <h1>Turn your screen<br>into a <em>voice</em>.</h1>
+        <p class="lede">ParrotFlow reads from where you chose, follows along, and keeps the page moving as you listen.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn" href="#get">Add to Chrome</a>
+          <a class="btn ghost" href="#pricing">See pricing</a>
+        </div>
+
+        <div class="reader" aria-label="A page reading itself aloud">
+          <div class="reader-chrome">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="url">a long article you were about to give up on</span>
+          </div>
+
+          <div class="reader-body" id="demo">
+            <span class="s">There is a lot of information on our screens.</span>
+            <span class="s">People read websites, papers, emails and reports every single day.</span>
+            <span class="s">But reading large amounts of information is tiring.</span>
+            <span class="s">Sometimes you just want to listen, and keep your place.</span>
+            <span class="s">ParrotFlow reads with you, and the page follows.</span>
+          </div>
+
+          <div class="player">
+            <span class="pulse"></span>
+            <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span id="playerText">Reading · Kofi · 1×</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2 class="narrow">Most reading tools make you carry the text to them.</h2>
+        <div class="swap">
+          <div class="old">
+            <h3>The usual way</h3>
+            <ol>
+              <li>Copy the text</li>
+              <li>Paste it somewhere</li>
+              <li>Upload a document</li>
+              <li>Find a text-to-speech tool</li>
+              <li>Finally start reading</li>
+            </ol>
+          </div>
+          <div class="new">
+            <h3>The ParrotFlow way</h3>
+            <p>Don't bring the text to ParrotFlow. Bring ParrotFlow to the text.</p>
+            <p style="font-family:var(--sans);font-size:.95rem;color:var(--ink-soft);margin-bottom:0">You see it. ParrotFlow
+              reads it. Nothing to copy, nothing to upload.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2 class="narrow">Built for people with too much to read.</h2>
+        <div class="people">
+          <div class="person"><b>Students</b>
+            <p>Listen to lecture notes and course material while your hands are busy.</p>
+          </div>
+          <div class="person"><b>Researchers</b>
+            <p>Get through long papers and reports without burning your eyes out.</p>
+          </div>
+          <div class="person"><b>Professionals</b>
+            <p>Turn the morning pile of emails and documents into something you can hear.</p>
+          </div>
+          <div class="person"><b>People who prefer listening</b>
+            <p>Some minds hold information better through the ear. This is for them.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="wrap">
+        <h2 class="narrow">Pricing</h2>
+        <p class="subhead">Pay for reading time, not clicks.</p>
+        <div class="plans">
+
+          <div class="plan">
+            <div class="name">Free</div>
+            <div class="price">₦0</div>
+            <div class="time">30 minutes a month</div>
+            <ul>
+              <li><b>Screen-native reading</b></li>
+              <li><b>Read Cursor</b></li>
+              <li><b>Sentence highlighting</b></li>
+              <li>Standard voices</li>
+              <li>Limited auto-scroll</li>
+            </ul>
+            <a class="btn ghost" href="#get" style="width:100%;justify-content:center">Start free</a>
+          </div>
+
+          <div class="plan pick">
+            <div class="name">Pro</div>
+            <div class="price">₦4,500 <small>/ month</small></div>
+            <div class="time">30 hours a month</div>
+            <ul>
+              <li>Everything in Free</li>
+              <li><b>Premium voices</b></li>
+              <li><b>Full auto-scroll</b></li>
+              <li>Works across your devices</li>
+              <li>₦45,000 a year</li>
+            </ul>
+            <a class="btn" href="#get" style="width:100%;justify-content:center">Choose Pro</a>
+          </div>
+
+          <div class="plan">
+            <div class="name">Pro+</div>
+            <div class="price">₦8,500 <small>/ month</small></div>
+            <div class="time">Unlimited reading</div>
+            <ul>
+              <li>Everything in Pro</li>
+              <li><b>My Voice</b>, your own reading voice</li>
+              <li>Priority on new features</li>
+              <li>₦85,000 a year</li>
+            </ul>
+            <a class="btn ghost" href="#get" style="width:100%;justify-content:center">Choose Pro+</a>
+          </div>
+
+        </div>
+        <p class="note">These are planned prices while we test the product. They may change before launch.</p>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="wrap">
+        <h2 class="narrow">Where ParrotFlow is going.</h2>
+        <div class="road">
+          <div class="phase now"><b>Chrome prototype</b>
+            <p>Read, Read Cursor, sentence detection, highlighting, auto-scroll and basic controls.</p>
+          </div>
+          <div class="phase"><b>A better reading engine</b>
+            <p>Sharper sentence detection, smoother scrolling, pause, resume, speed and remembered reading position.</p>
+          </div>
+          <div class="phase"><b>A better experience</b>
+            <p>A floating player, keyboard shortcuts, reading progress, dark mode and onboarding that needs no
+              explaining.</p>
+          </div>
+          <div class="phase"><b>AI reading</b>
+            <p>Explain this. Summarise this. Read only the important parts. Continue from where I stopped.</p>
+          </div>
+          <div class="phase"><b>Beyond the browser</b>
+            <p>Desktop, Android and iPhone, each built around what those platforms allow.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="close" id="get">
+      <div class="wrap">
+        <h2>Make reading from a screen feel effortless.</h2>
+        <p>ParrotFlow is a screen-native reading assistant that turns the content on your screen into a guided voice
+          experience.</p>
+        <a class="btn" href="#get">Add ParrotFlow to Chrome</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="mark"><i>P</i> ParrotFlow</div>
+      <span>Turn your screen into a voice.</span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var lines = document.querySelectorAll('#demo .s');
+      var label = document.getElementById('playerText');
+      if (!lines.length) return;
+
+      lines[0].classList.add('on');
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      var i = 0;
+      function step() {
+        lines[i].classList.remove('on');
+        i = (i + 1) % lines.length;
+        lines[i].classList.add('on');
+        label.textContent = 'Reading · sentence ' + (i + 1) + ' of ' + lines.length + ' · Kofi · 1×';
+        setTimeout(step, 2200 + lines[i].textContent.length * 28);
+      }
+      setTimeout(step, 2600);
+    })();
+  </script>
+
+</body>
+
+</html>
